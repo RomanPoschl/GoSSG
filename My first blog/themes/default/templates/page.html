@@ -1,0 +1,17 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ .FrontMatter.title }}</title>
+</head>
+<body>
+    <header>
+        <h1>{{ .FrontMatter.title }}</h1>
+        <p>By {{ .FrontMatter.author }}</p>
+    </header>
+    <main>
+        {{ .Content }}
+    </main>
+</body>
+</html>
