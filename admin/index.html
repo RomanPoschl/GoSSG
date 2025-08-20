@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Go Static CMS - Admin</title>
+    <link rel="stylesheet" href="/css/style.css">
+    <script src="/js/htmx.min.js"></script>
+</head>
+<body>
+    <header>
+        <h1>Go Static CMS</h1>
+    </header>
+    <main>
+        <h2>Dashboard</h2>
+        <p>Welcome to your new static site generator!</p>
+
+        <!-- 2. Add a button to trigger the API call -->
+        <button 
+            hx-get="/api/ui/projects" 
+            hx-target="#project-list" 
+            hx-swap="innerHTML">
+            Load Projects
+        </button>
+
+        <!-- 3. This is where the project list will be loaded -->
+        <div id="project-list"></div>
+    </main>
+</body>
+</html>

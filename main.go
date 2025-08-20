@@ -138,6 +138,7 @@ func main() {
 	addProjectName := flag.String("add", "", "The name of a new project to create.")
 	listProjects := flag.Bool("list", false, "List all managed projects.")
 	buildProjectName := flag.String("build", "", "The name of a project to build")
+	serve := flag.Bool("serve", false, "Start the admin web server.")
 	flag.Parse()
 
 	// --- 3. Execute Actions ---
@@ -168,6 +169,14 @@ func main() {
 		}
 		if err := buildProject(project); err != nil {
 			log.Fatalf("Build failed: %v", err)
+		}
+		return
+	}
+
+	if *serve {
+		// Call the function from our new server.go file
+		if err := startServer("8080"); err != nil {
+			log.Fatalf("Failed to start server: %v", err)
 		}
 		return
 	}
