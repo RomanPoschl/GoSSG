@@ -78,31 +78,32 @@ func (c *Config) save() error {
 }
 
 // addProject adds a new project to the config and creates its directory structure.
-func (c *Config) addProject(name string) error {
-	// Check for duplicate project names.
+func (c *Config) addProject(name, customPath string) error {
 	for _, p := range c.Projects {
 		if p.Name == name {
 			return fmt.Errorf("project with name '%s' already exists", name)
 		}
 	}
 
-	// Create the project directory in the current working directory.
-	projectPath, err := filepath.Abs(name)
+	var projectRoot string
+	if customPath == "" {
+		// If no path is provided, create the project in the current directory.
+		projectRoot = "."
+	} else {
+		projectRoot = customPath
+	}
+
+	// The final path is the root combined with the project name.
+	projectPath, err := filepath.Abs(filepath.Join(projectRoot, name))
 	if err != nil {
 		return fmt.Errorf("could not determine absolute path for project: %w", err)
 	}
 
 	log.Printf("Creating new project '%s' at: %s\n", name, projectPath)
 
-	// Create the standard directory structure for a new project.
 	dirs := []string{
-		"content",
-		"public",
-		"static/css",
-		"static/js",
-		"static/images",
-		"themes/default/templates/partials",
-		"addons",
+		"content", "public", "themes/default/templates/partials",
+		"themes/default/static/css", "themes/default/static/js", "addons",
 	}
 
 	for _, dir := range dirs {
@@ -112,7 +113,6 @@ func (c *Config) addProject(name string) error {
 		}
 	}
 
-	// Add the new project to our list and save the config.
 	c.Projects = append(c.Projects, Project{Name: name, Path: projectPath})
 	return c.save()
 }
@@ -143,7 +143,7 @@ func main() {
 
 	// --- 3. Execute Actions ---
 	if *addProjectName != "" {
-		if err := config.addProject(*addProjectName); err != nil {
+		if err := config.addProject(*addProjectName, ""); err != nil {
 			log.Fatalf("Error adding project: %v", err)
 		}
 		log.Printf("Project '%s' created successfully!", *addProjectName)
@@ -175,7 +175,7 @@ func main() {
 
 	if *serve {
 		// Call the function from our new server.go file
-		if err := startServer("8080"); err != nil {
+		if err := startServer("8080", *config); err != nil {
 			log.Fatalf("Failed to start server: %v", err)
 		}
 		return

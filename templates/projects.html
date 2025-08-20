@@ -1,0 +1,10 @@
+<div class="space-y-4">
+    {{range .}}
+    <div class="bg-white p-4 rounded-lg shadow-md border border-gray-200">
+        <h3 class="text-lg font-semibold text-gray-800">{{.Name}}</h3>
+        <p class="text-sm text-gray-500 mt-1">{{.Path}}</p>
+    </div>
+    {{else}}
+    <p class="text-gray-600">No projects found. Use the --add flag to create one.</p>
+    {{end}}
+</div>
