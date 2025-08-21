@@ -1,13 +1,20 @@
 package main
 
 import (
+	"embed"
 	"encoding/json"
-	"flag"
 	"fmt"
 	"log"
 	"os"
 	"path/filepath"
+
+	"github.com/wailsapp/wails/v2"
+	"github.com/wailsapp/wails/v2/pkg/options"
+	"github.com/wailsapp/wails/v2/pkg/options/assetserver"
 )
+
+//go:embed all:frontend/dist
+var assets embed.FS
 
 // --- Data Structures ---
 
@@ -120,66 +127,88 @@ func (c *Config) addProject(name, customPath string) error {
 // --- Main Application Logic ---
 
 func main() {
+	app := NewApp()
+
+	// Create application with options
+	err := wails.Run(&options.App{
+		Title:  "GoSSG",
+		Width:  1024,
+		Height: 768,
+		AssetServer: &assetserver.Options{
+			Assets: assets,
+		},
+		BackgroundColour: &options.RGBA{R: 27, G: 38, B: 54, A: 1},
+		OnStartup:        app.startup,
+		Bind: []interface{}{
+			app,
+		},
+	})
+
+	if err != nil {
+		println("Error:", err.Error())
+	}
+
 	// --- 1. Setup: Locate and load the configuration file ---
 	// We'll store projects.json in a standard user config location.
-	userConfigDir, err := os.UserConfigDir()
-	if err != nil {
-		log.Fatalf("Could not find user config directory: %v", err)
-	}
-	configPath := filepath.Join(userConfigDir, "GoStaticCMS", "projects.json")
+	// userConfigDir, err := os.UserConfigDir()
+	// if err != nil {
+	// 	log.Fatalf("Could not find user config directory: %v", err)
+	// }
+	// configPath := filepath.Join(userConfigDir, "GoStaticCMS", "projects.json")
+	// configPath := "projects.json"
 
-	config, err := loadConfig(configPath)
-	if err != nil {
-		log.Fatalf("Error loading configuration: %v", err)
-	}
+	// config, err := loadConfig(configPath)
+	// if err != nil {
+	// 	log.Fatalf("Error loading configuration: %v", err)
+	// }
 
-	// --- 2. Handle Command-Line Arguments ---
-	// We use flags to tell our app what to do.
-	addProjectName := flag.String("add", "", "The name of a new project to create.")
-	listProjects := flag.Bool("list", false, "List all managed projects.")
-	buildProjectName := flag.String("build", "", "The name of a project to build")
-	serve := flag.Bool("serve", false, "Start the admin web server.")
-	flag.Parse()
+	// // --- 2. Handle Command-Line Arguments ---
+	// // We use flags to tell our app what to do.
+	// addProjectName := flag.String("add", "", "The name of a new project to create.")
+	// listProjects := flag.Bool("list", false, "List all managed projects.")
+	// buildProjectName := flag.String("build", "", "The name of a project to build")
+	// serve := flag.Bool("serve", false, "Start the admin web server.")
+	// flag.Parse()
 
-	// --- 3. Execute Actions ---
-	if *addProjectName != "" {
-		if err := config.addProject(*addProjectName, ""); err != nil {
-			log.Fatalf("Error adding project: %v", err)
-		}
-		log.Printf("Project '%s' created successfully!", *addProjectName)
-		return
-	}
+	// // --- 3. Execute Actions ---
+	// if *addProjectName != "" {
+	// 	if err := config.addProject(*addProjectName, ""); err != nil {
+	// 		log.Fatalf("Error adding project: %v", err)
+	// 	}
+	// 	log.Printf("Project '%s' created successfully!", *addProjectName)
+	// 	return
+	// }
 
-	if *listProjects {
-		if len(config.Projects) == 0 {
-			fmt.Println("No projects found. Use the --add flag to create one.")
-			return
-		}
-		fmt.Println("Managed Projects:")
-		for _, p := range config.Projects {
-			fmt.Printf("  - %s (%s)\n", p.Name, p.Path)
-		}
-		return
-	}
+	// if *listProjects {
+	// 	if len(config.Projects) == 0 {
+	// 		fmt.Println("No projects found. Use the --add flag to create one.")
+	// 		return
+	// 	}
+	// 	fmt.Println("Managed Projects:")
+	// 	for _, p := range config.Projects {
+	// 		fmt.Printf("  - %s (%s)\n", p.Name, p.Path)
+	// 	}
+	// 	return
+	// }
 
-	if *buildProjectName != "" {
-		project, err := config.findProjectByName(*buildProjectName)
-		if err != nil {
-			log.Fatalf("Error: %v", err)
-		}
-		if err := buildProject(project); err != nil {
-			log.Fatalf("Build failed: %v", err)
-		}
-		return
-	}
+	// if *buildProjectName != "" {
+	// 	project, err := config.findProjectByName(*buildProjectName)
+	// 	if err != nil {
+	// 		log.Fatalf("Error: %v", err)
+	// 	}
+	// 	if err := buildProject(project); err != nil {
+	// 		log.Fatalf("Build failed: %v", err)
+	// 	}
+	// 	return
+	// }
 
-	if *serve {
-		// Call the function from our new server.go file
-		if err := startServer("8080", *config); err != nil {
-			log.Fatalf("Failed to start server: %v", err)
-		}
-		return
-	}
+	// if *serve {
+	// 	// Call the function from our new server.go file
+	// 	if err := startServer("8080", *config); err != nil {
+	// 		log.Fatalf("Failed to start server: %v", err)
+	// 	}
+	// 	return
+	// }
 
-	fmt.Println("No action specified. Use --add 'Project Name' or --list.")
+	// fmt.Println("No action specified. Use --add 'Project Name' or --list.")
 }
