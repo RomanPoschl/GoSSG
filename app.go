@@ -2,26 +2,25 @@ package main
 
 import (
 	"context"
-	"fmt"
+	"embed"
+	"log"
+	"my-ssg/core"
 )
 
-// App struct
+//go:embed all:frontend
+//go:embed all:templates
+var assets embed.FS
+
 type App struct {
-	ctx context.Context
+	ctx    context.Context
+	engine *core.Engine // Our core logic
 }
 
-// NewApp creates a new App application struct
 func NewApp() *App {
-	return &App{}
-}
-
-// startup is called when the app starts. The context is saved
-// so we can call the runtime methods
-func (a *App) startup(ctx context.Context) {
-	a.ctx = ctx
-}
-
-// Greet returns a greeting for the given name
-func (a *App) Greet(name string) string {
-	return fmt.Sprintf("Hello %s, It's show time!", name)
+	// Initialize our core engine
+	engine, err := core.NewEngine()
+	if err != nil {
+		log.Fatalf("Failed to initialize core engine: %v", err)
+	}
+	return &App{engine: engine}
 }

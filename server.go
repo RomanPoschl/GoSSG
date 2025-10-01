@@ -1,79 +1,90 @@
 package main
 
 import (
+	"github.com/labstack/echo/v4"
 	"html/template"
-	"io/fs"
 	"log"
+	"my-ssg/core"
 	"net/http"
 	"path/filepath"
+	"time"
 )
 
-func startServer(port string, config Config) error {
-	subFs, err := fs.Sub(adminUI, "admin")
+func createWebServerMux(engine *core.Engine) http.Handler {
+	mux := echo.New()
 
-	if err != nil {
-		return err
-	}
+	mux.Static("/", "frontend/dist")
 
-	fs := http.FS(subFs)
-	fileServer := http.StripPrefix("/", http.FileServer(fs))
+	mux.GET("/api/ui/projects-view", projectsHandler(engine))
+	mux.GET("/api/ui/projects", listProjectsHandler(engine))
+	mux.GET("/api/ui/project/:name", projectDashboardHandler(engine))
+	mux.POST("/api/ui/project/:name/build", handleBuildProject(engine))
 
-	http.Handle("/", fileServer)
-	http.HandleFunc("/api/ui/projects", projectsHandler(config))
-
-	log.Printf("Starting admin server on http://localhost:%s\n", port)
-
-	return http.ListenAndServe(":"+port, nil)
+	log.Println("Internal web server mux created.")
+	return mux
 }
 
-func projectsHandler(config Config) http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-		switch r.Method {
-		case http.MethodGet:
-			renderProjectList(w, config)
-		case http.MethodPost:
-			if err := r.ParseForm(); err != nil {
-				http.Error(w, "Failed to parse form", http.StatusBadRequest)
-				return
-			}
-			projectName := r.FormValue("projectName")
-			// Get the new project path from the form.
-			projectPath := r.FormValue("projectPath")
+func renderTemplate(c echo.Context, name string, data interface{}) error {
+	tmpl, err := template.ParseFiles(filepath.Join("templates", name))
+	if err != nil {
+		return c.String(http.StatusInternalServerError, "Template not found")
+	}
+	return tmpl.Execute(c.Response().Writer, data)
+}
 
-			if projectName == "" {
-				http.Error(w, "Project name cannot be empty", http.StatusBadRequest)
-				return
-			}
+func projectsHandler(engine *core.Engine) echo.HandlerFunc {
+	return func(c echo.Context) error {
+		return renderTemplate(c, "main-view.html", nil)
+	}
+}
 
-			// Pass both name and path to the addProject function.
-			if err := config.addProject(projectName, projectPath); err != nil {
-				http.Error(w, err.Error(), http.StatusInternalServerError)
-				log.Printf("Error adding project: %v", err)
-				return
-			}
-			log.Printf("Created new project from UI: %s", projectName)
+func listProjectsHandler(engine *core.Engine) echo.HandlerFunc {
+	return func(c echo.Context) error {
+		projects := engine.GetProjects()
+		return renderTemplate(c, "projects.html", projects)
+	}
+}
 
-			renderProjectList(w, config)
-		default:
-			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+func projectDashboardHandler(engine *core.Engine) echo.HandlerFunc {
+	return func(c echo.Context) error {
+		projectName := c.Param("name")
+
+		project, err := engine.FindProjectByName(projectName)
+
+		if err != nil {
+			return c.String(http.StatusNotFound, err.Error())
 		}
+
+		files, err := engine.ListContentFiles(projectName)
+
+		if err != nil {
+			return c.String(http.StatusInternalServerError, err.Error())
+		}
+
+		data := map[string]interface{}{"Project": project, "Files": files}
+		return renderTemplate(c, "project-dashboard.html", data)
 	}
 }
 
-// renderProjectList is a helper function to render the projects template.
-func renderProjectList(w http.ResponseWriter, config Config) {
-	templatePath := filepath.Join("templates", "projects.html")
-	tmpl, err := template.ParseFiles(templatePath)
-	if err != nil {
-		http.Error(w, "Could not parse template", http.StatusInternalServerError)
-		log.Printf("Error parsing projects template: %v", err)
-		return
-	}
+func handleBuildProject(engine *core.Engine) echo.HandlerFunc {
+	return func(c echo.Context) error {
+		projectName := c.Param("name")
 
-	err = tmpl.Execute(w, config.Projects)
-	if err != nil {
-		http.Error(w, "Could not execute template", http.StatusInternalServerError)
-		log.Printf("Error executing projects template: %v", err)
-		return
+		err := engine.BuildProject(projectName)
+
+		// Prepare data for the feedback template
+		data := map[string]interface{}{
+			"ProjectName": projectName,
+			"Timestamp":   time.Now().UnixNano(), // Unique ID for the toast element
+		}
+
+		if err != nil {
+			log.Printf("ERROR: Build failed for project '%s': %v", projectName, err)
+			data["Error"] = err.Error()
+			return renderTemplate(c, "toast-error.html", data)
+		}
+
+		log.Printf("SUCCESS: Project '%s' built successfully.", projectName)
+		return renderTemplate(c, "toast-success.html", data)
 	}
 }

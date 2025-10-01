@@ -1,0 +1,14 @@
+<div id="toast-{{.Timestamp}}"
+	class="bg-red-500 text-white font-bold py-2 px-4 rounded-lg shadow-xl animate-fade-in-down">
+	<p>❌ Error! Failed to build project '{{.ProjectName}}'.</p>
+	<p class="text-sm font-normal mt-1">{{.Error}}</p>
+</div>
+<script>
+	setTimeout(() => {
+		const toast = document.getElementById('toast-{{.Timestamp}}');
+		if (toast) {
+			toast.classList.add('opacity-0', 'transition-opacity', 'duration-500');
+			setTimeout(() => toast.remove(), 500);
+		}
+	}, 6000); // Show errors for a bit longer
+</script>

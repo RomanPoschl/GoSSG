@@ -1,0 +1,15 @@
+<div id="toast-{{.Timestamp}}"
+	class="bg-green-500 text-white font-bold py-2 px-4 rounded-lg shadow-xl animate-fade-in-down">
+	<p>✅ Success! Project '{{.ProjectName}}' built successfully.</p>
+</div>
+<script>
+	setTimeout(() => {
+		const toast = document.getElementById('toast-{{.Timestamp}}');
+		if (toast) {
+			// Add a class to fade it out smoothly
+			toast.classList.add('opacity-0', 'transition-opacity', 'duration-500');
+			// Remove the element from the DOM after the fade-out completes
+			setTimeout(() => toast.remove(), 500);
+		}
+	}, 4000); // The toast will be visible for 4 seconds
+</script>
