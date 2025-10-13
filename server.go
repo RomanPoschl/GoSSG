@@ -21,8 +21,9 @@ func createWebServerMux(engine *core.Engine) http.Handler {
 	e.GET("/api/ui/project/:name", projectDashboardHandler(engine))
 	e.POST("/api/ui/project/:name/build", handleBuildProject(engine))
 
+	e.GET("/api/ui/editor/:name/new", showNewEditorHandler(engine))
+	e.POST("/api/ui/save-article/:name", handleSaveArticleHandler(engine))
 	e.GET("/api/ui/editor/:name/*", showEditorHandler(engine))
-	e.POST("/api/ui/editor/:name/*", saveFileHandler(engine))
 
 	log.Println("Internal web server mux created.")
 	return e
@@ -38,14 +39,14 @@ func renderTemplate(c echo.Context, name string, data interface{}) error {
 
 func projectsHandler(engine *core.Engine) echo.HandlerFunc {
 	return func(c echo.Context) error {
-		return renderTemplate(c, "main-view.html", nil)
+		return renderTemplate(c, filepath.Join("pages", "main-view.html"), nil)
 	}
 }
 
 func listProjectsHandler(engine *core.Engine) echo.HandlerFunc {
 	return func(c echo.Context) error {
 		projects := engine.GetProjects()
-		return renderTemplate(c, "projects.html", projects)
+		return renderTemplate(c, filepath.Join("partials", "projects-list.html"), projects)
 	}
 }
 
@@ -66,7 +67,7 @@ func projectDashboardHandler(engine *core.Engine) echo.HandlerFunc {
 		}
 
 		data := map[string]interface{}{"Project": project, "Files": files}
-		return renderTemplate(c, "project-dashboard.html", data)
+		return renderTemplate(c, filepath.Join("pages", "project-dashboard.html"), data)
 	}
 }
 
@@ -90,33 +91,7 @@ func handleBuildProject(engine *core.Engine) echo.HandlerFunc {
 
 		log.Printf("SUCCESS: Project '%s' built successfully.", projectName)
 		data["Message"] = fmt.Sprintf("Project '%s' built successfully.", projectName)
-		return renderTemplate(c, "toast-success.html", data)
-	}
-}
-
-func showEditorHandler(engine *core.Engine) echo.HandlerFunc {
-	return func(c echo.Context) error {
-		// 1. Echo cleanly separates the named parameter and the wildcard.
-		projectName := c.Param("name")
-		// The wildcard parameter is accessed with "*".
-		filePath := c.Param("*")
-
-		// 2. Ask the core engine to read the file content.
-		content, err := engine.ReadFileContent(projectName, filePath)
-		if err != nil {
-			// In a real app, you might render a nice error page here.
-			return c.String(http.StatusNotFound, err.Error())
-		}
-
-		// 3. Prepare the data for the editor.html template.
-		data := map[string]interface{}{
-			"ProjectName": projectName,
-			"FilePath":    filePath,
-			"FileContent": content,
-		}
-
-		// 4. Render the editor template.
-		return renderTemplate(c, "editor.html", data)
+		return renderTemplate(c, filepath.Join("partials", "toast-success.html"), data)
 	}
 }
 
@@ -150,6 +125,72 @@ func saveFileHandler(engine *core.Engine) echo.HandlerFunc {
 			log.Printf("SUCCESS: File '%s' saved in project '%s'.", filePath, projectName)
 		}
 
-		return renderTemplate(c, toastTemplate, data)
+		return renderTemplate(c, filepath.Join("partials", toastTemplate), data)
+	}
+}
+
+func showNewEditorHandler(engine *core.Engine) echo.HandlerFunc {
+	return func(c echo.Context) error {
+		// Render the editor with a blank, default Article object
+		data := map[string]interface{}{
+			"ProjectName": c.Param("name"),
+			"Article":     &core.Article{ /* Default values here */ },
+			"IsNew":       true,
+		}
+		return renderTemplate(c, filepath.Join("pages", "editor.html"), data)
+	}
+}
+
+// showEditorHandler now uses our new parsing method
+func showEditorHandler(engine *core.Engine) echo.HandlerFunc {
+	return func(c echo.Context) error {
+		projectName := c.Param("name")
+		filePath := c.Param("*")
+		article, err := engine.ParseArticleFile(projectName, filePath)
+
+		if err != nil {
+			return renderTemplate(c, filepath.Join("partials", "toast-error.html"), err.Error())
+		}
+		data := map[string]interface{}{
+			"ProjectName": projectName,
+			"Article":     article,
+			"IsNew":       false,
+		}
+		return renderTemplate(c, filepath.Join("pages", "editor.html"), data)
+	}
+}
+
+func handleSaveArticleHandler(engine *core.Engine) echo.HandlerFunc {
+	return func(c echo.Context) error {
+		projectName := c.Param("name")
+		title := c.FormValue("title")
+		body := c.FormValue("content")
+		originalPath := c.FormValue("originalFilePath")
+
+		articeData := &core.Article{
+			FrontMatter: core.ArticleFrontMatter{
+				Title: title,
+				Date:  time.Now(),
+			},
+			Body: body,
+		}
+
+		finalPath, err := engine.SaveArticle(projectName, articeData, originalPath)
+
+		if err != nil {
+			// If the forge fails, send back an error toast.
+			log.Printf("ERROR: Failed to save article for project '%s': %v", projectName, err)
+			data := map[string]interface{}{
+				"Timestamp": time.Now().UnixNano(),
+				"Error":     err.Error(),
+			}
+			return renderTemplate(c, filepath.Join("partials", "toast-error.html"), data)
+		}
+
+		log.Printf("SUCCESS: Article saved to '%s'. Redirecting.", finalPath)
+		editorURL := fmt.Sprintf("/api/ui/editor/%s/%s", projectName, finalPath)
+		c.Response().Header().Set("HX-Redirect", editorURL)
+
+		return c.NoContent(http.StatusOK)
 	}
 }
