@@ -1,0 +1,18 @@
+// Project-local debug tasks
+//
+// For more documentation on how to configure debug tasks,
+// see: https://zed.dev/docs/debugger
+[
+  {
+    "label": "BuildDebug",
+    "adapter": "Delve",
+    "mode": "exec",
+    "program": "${ZED_WORKTREE_ROOT}/build/bin/GoSSG.exe",
+    "request": "launch",
+    "showLog": true,
+    "build": {
+      "command": "wails",
+      "args": ["build", "-debug", "-clean", "-v", "2", "dev"]
+    }
+  }
+]
